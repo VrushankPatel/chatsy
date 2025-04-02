@@ -1,24 +1,15 @@
 import { useState, useEffect } from 'react';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/sonner';
-import { useToast } from '@/hooks/use-toast';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { MessageSquare, Send, Upload, Moon, Sun } from 'lucide-react';
-import { generateUsername } from '@/lib/utils';
+import { MessageSquare, Moon, Sun } from 'lucide-react';
 import { ChatRoom } from '@/components/chat-room';
 import { UserOnboarding } from '@/components/user-onboarding';
 
 function App() {
   const [username, setUsername] = useState<string>('');
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
-  const { toast } = useToast();
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
