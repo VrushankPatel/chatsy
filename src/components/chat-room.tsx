@@ -53,7 +53,7 @@ export function ChatRoom({ username }: ChatRoomProps) {
           { urls: 'stun:stun4.l.google.com:19302' }
         ]
       },
-      retries: 5,
+      // retries: 5,
       pingInterval: 5000,
     });
 
