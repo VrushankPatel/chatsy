@@ -34,9 +34,28 @@ export function ChatRoom({ username }: ChatRoomProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
-    const newPeer = new Peer(username);
+    const newPeer = new Peer(username, {
+      host: 'peerjs.com',
+      port: 443,
+      path: '/',
+      secure: true,
+      debug: 3,
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:global.stun.twilio.com:3478' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' },
+          { urls: 'stun:stun3.l.google.com:19302' },
+          { urls: 'stun:stun4.l.google.com:19302' }
+        ]
+      },
+      retries: 5,
+      pingInterval: 5000,
+    });
 
     newPeer.on('open', (id) => {
       console.log('My peer ID is:', id);
@@ -55,11 +74,58 @@ export function ChatRoom({ username }: ChatRoomProps) {
         description: err.message,
         variant: 'destructive',
       });
+
+      // Clear any existing reconnection timeout
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+
+      // Attempt to reconnect after a delay
+      reconnectTimeoutRef.current = setTimeout(() => {
+        if (newPeer.disconnected) {
+          console.log('Attempting to reconnect after error...');
+          try {
+            newPeer.reconnect();
+          } catch (e) {
+            console.error('Reconnection failed:', e);
+          }
+        }
+      }, 5000);
+    });
+
+    newPeer.on('disconnected', () => {
+      console.log('Peer disconnected - attempting to reconnect...');
+      toast({
+        title: 'Connection Lost',
+        description: 'Attempting to reconnect...',
+      });
+
+      // Clear any existing reconnection timeout
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+
+      // Attempt to reconnect after a delay
+      reconnectTimeoutRef.current = setTimeout(() => {
+        try {
+          newPeer.reconnect();
+        } catch (e) {
+          console.error('Reconnection failed:', e);
+          toast({
+            title: 'Reconnection Failed',
+            description: 'Please refresh the page to try again.',
+            variant: 'destructive',
+          });
+        }
+      }, 2000);
     });
 
     setPeer(newPeer);
 
     return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
       newPeer.destroy();
     };
   }, [username]);
@@ -70,6 +136,7 @@ export function ChatRoom({ username }: ChatRoomProps) {
     setIsConnected(true);
     
     conn.on('data', handleIncomingData);
+    
     conn.on('close', () => {
       setIsConnected(false);
       toast({
@@ -77,13 +144,26 @@ export function ChatRoom({ username }: ChatRoomProps) {
         description: 'The peer has disconnected',
       });
     });
+
+    conn.on('error', (err) => {
+      console.error('Connection error:', err);
+      toast({
+        title: 'Connection Error',
+        description: 'Error in peer connection. Please try reconnecting.',
+        variant: 'destructive',
+      });
+      setIsConnected(false);
+    });
   };
 
   const connectToPeer = () => {
     if (!peer || !peerUsername.trim()) return;
 
     try {
-      const conn = peer.connect(peerUsername.trim());
+      const conn = peer.connect(peerUsername.trim(), {
+        reliable: true,
+        serialization: 'json',
+      });
       
       conn.on('open', () => {
         handleConnection(conn);
